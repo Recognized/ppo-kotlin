@@ -25,12 +25,16 @@ import org.apache.commons.csv.CSVFormat
 import org.apache.commons.csv.CSVParser
 import sigmoid
 import java.io.File
+import java.util.*
 import java.util.concurrent.ConcurrentLinkedDeque
 import java.util.concurrent.Executors
 
+var FEATURES = 16
+var CLASSES = 10
+
 fun normalize(dataset: List<InstanceClass>): List<InstanceClass> {
-    val max = (0..15).map { i -> dataset.maxBy { it.vector.value[i] }!!.vector.value[i] }
-    val min = (0..15).map { i -> dataset.minBy { it.vector.value[i] }!!.vector.value[i] }
+    val max = (0 until FEATURES).map { i -> dataset.maxBy { it.vector.value[i] }!!.vector.value[i] }
+    val min = (0 until FEATURES).map { i -> dataset.minBy { it.vector.value[i] }!!.vector.value[i] }
     return dataset.map {
         InstanceClass(
             Vector(it.vector.value.mapIndexed { i, d -> (d - min[i]) / (max[i] - min[i]) }.toDoubleArray()),
@@ -44,8 +48,8 @@ var uKernel = KernelFnClass(::sigmoid.name, sigmoid)
 var uWindow: Window = Window.Variable(5)
 
 fun test(dataset: List<InstanceClass>, example: Vector): Int {
-    val max = (0..15).map { i -> dataset.maxBy { it.vector.value[i] }!!.vector.value[i] }
-    val min = (0..15).map { i -> dataset.minBy { it.vector.value[i] }!!.vector.value[i] }
+    val max = (0 until FEATURES).map { i -> dataset.maxBy { it.vector.value[i] }!!.vector.value[i] }
+    val min = (0 until FEATURES).map { i -> dataset.minBy { it.vector.value[i] }!!.vector.value[i] }
     val e = Vector(example.value.mapIndexed { i, d -> (d - min[i]) / (max[i] - min[i]) }.toDoubleArray())
     println("Normalized: $e")
     return knnClass(normalize(dataset), uDistanceFnClass.fn, uKernel.fn, e, uWindow)
@@ -126,7 +130,7 @@ fun leaveOneOut(
     kernelFn: KernelFnClass,
     window: Window
 ): Stat {
-    val matrix = Array(10) { Array(10) { 0 } }
+    val matrix = Array(CLASSES) { Array(CLASSES) { 0 } }
     timed("LOO ${distanceFn.name} ${kernelFn.name} $window") {
         for (one in dataset) {
             val guess = knnClass(dataset - one, distanceFn.fn, kernelFn.fn, one.vector, window)
@@ -169,8 +173,13 @@ fun main() {
     for (r in results.sortedByDescending { it.stat.f1 }) {
         println(r)
     }
-    File("results.json").bufferedWriter().use {
-        it.write(Json(JsonConfiguration.Stable.copy(prettyPrint = true)).stringify(Result.serializer().list, results.toList()))
+    File("results_${Date()}.json").bufferedWriter().use {
+        it.write(
+            Json(JsonConfiguration.Stable.copy(prettyPrint = true)).stringify(
+                Result.serializer().list,
+                results.toList()
+            )
+        )
     }
 
     close()
