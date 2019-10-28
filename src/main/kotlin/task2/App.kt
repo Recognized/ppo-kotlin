@@ -11,17 +11,23 @@ import java.time.Duration
 import java.time.Instant
 import java.util.*
 
-interface AppEngine {
-    suspend fun search(tag: String, hours: Int): List<Int>
+abstract class AppEngine {
+    suspend fun search(tag: String, hours: Int): List<Int> {
+        return countByHours(getDates(tag, hours), hours)
+    }
+
+    abstract suspend fun getDates(tag: String, hours: Int): List<Long>
+    abstract fun countByHours(dates: List<Long>, hours: Int): List<Int>
 }
 
-class AppEngineImpl(val auth: AppAuth, val client: HttpClient, val now: Long = System.currentTimeMillis() / 1000L) : AppEngine {
+open class AppEngineImpl(val auth: AppAuth, val client: HttpClient, val now: Long = System.currentTimeMillis() / 1000L) :
+    AppEngine() {
 
     private suspend inline fun HttpClient.getJson(url: String, builder: HttpRequestBuilder.() -> Unit): JsonElement {
         return Json(JsonConfiguration.Stable).parse(JsonElementSerializer, this.get(url, builder))
     }
 
-    override suspend fun search(tag: String, hours: Int): List<Int> {
+    override suspend fun getDates(tag: String, hours: Int): List<Long> {
         if (hours !in 1..24) {
             error("Invalid hours: $hours, must be in 1..24")
         }
@@ -36,10 +42,14 @@ class AppEngineImpl(val auth: AppAuth, val client: HttpClient, val now: Long = S
             parameter("start_time", now - hour * hours)
         }
         println("[client]: Response: \"$response\"")
-        val data = response.jsonObject.getObject("response").getArray("items").map {
-            (now - it.jsonObject.getPrimitive("date").long) / hour
+        return response.jsonObject.getObject("response").getArray("items").map {
+            it.jsonObject.getPrimitive("date").long
         }
-        val count = data.filter { it in 0..23 }.groupBy { it }.mapValues { it.value.size }
+    }
+
+    override fun countByHours(dates: List<Long>, hours: Int): List<Int> {
+        val hour = 60L * 60
+        val count = dates.map { (now - it) / hour }.filter { it in 0..23 }.groupBy { it }.mapValues { it.value.size }
         return (0 until hours).map { count[it.toLong()] ?: 0 }
     }
 }

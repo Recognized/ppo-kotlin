@@ -33,10 +33,11 @@ class MockTests {
     @Test
     fun `test one article per hour`() {
         Assertions.assertEquals((1..24).map { 1 }, runBlocking {
-            AppEngineImpl(
+            MockEngine(
                 MockAuth,
-                dateMockedClient((0..23).map { it * 60 * 60 + 30 }),
-                24 * 60 * 60
+                mockedClient,
+                24 * 60 * 60,
+                (0..23).map { it * 60 * 60L + 30 }
             ).search("onePerHour", 24)
         })
     }
@@ -50,31 +51,5 @@ class MockTests {
                 1_000_000_000
             ).search("onePerHour", 24)
         })
-    }
-
-    @Test
-    fun `test hours must be positive`() {
-        runBlocking {
-            Assertions.assertEquals(1, AppEngineImpl(MockAuth, mockedClient).search("response1", 1).size)
-        }
-
-        assertThrows<Throwable> {
-            runBlocking {
-                AppEngineImpl(MockAuth, mockedClient).search("response1", 0)
-            }
-        }
-    }
-
-    @Test
-    fun `test hours cannot be greater 24`() {
-        runBlocking {
-            Assertions.assertEquals(24, AppEngineImpl(MockAuth, mockedClient).search("response1", 24).size)
-        }
-
-        assertThrows<Throwable> {
-            runBlocking {
-                AppEngineImpl(MockAuth, mockedClient).search("response1", 25)
-            }
-        }
     }
 }
