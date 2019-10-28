@@ -15,7 +15,7 @@ interface AppEngine {
     suspend fun search(tag: String, hours: Int): List<Int>
 }
 
-class AppEngineImpl(val auth: AppAuth, val client: HttpClient) : AppEngine {
+class AppEngineImpl(val auth: AppAuth, val client: HttpClient, val now: Long = System.currentTimeMillis() / 1000L) : AppEngine {
 
     private suspend inline fun HttpClient.getJson(url: String, builder: HttpRequestBuilder.() -> Unit): JsonElement {
         return Json(JsonConfiguration.Stable).parse(JsonElementSerializer, this.get(url, builder))
@@ -25,7 +25,6 @@ class AppEngineImpl(val auth: AppAuth, val client: HttpClient) : AppEngine {
         if (hours !in 1..24) {
             error("Invalid hours: $hours, must be in 1..24")
         }
-        val now = System.currentTimeMillis() / 1000L
         val hour = 60L * 60
         println(now)
         val response = client.getJson("https://api.vk.com/method/newsfeed.search") {
@@ -40,7 +39,6 @@ class AppEngineImpl(val auth: AppAuth, val client: HttpClient) : AppEngine {
         val data = response.jsonObject.getObject("response").getArray("items").map {
             (now - it.jsonObject.getPrimitive("date").long) / hour
         }
-        println("[client]: $data")
         val count = data.filter { it in 0..23 }.groupBy { it }.mapValues { it.value.size }
         return (0 until hours).map { count[it.toLong()] ?: 0 }
     }

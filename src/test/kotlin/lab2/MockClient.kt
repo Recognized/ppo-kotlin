@@ -15,3 +15,17 @@ val mockedClient = HttpClient(MockEngine) {
         }
     }
 }
+
+fun dateMockedClient(dates: List<Int>) = HttpClient(MockEngine) {
+    engine {
+        addHandler { request ->
+            val responseHeaders = headersOf("Content-Type" to listOf(ContentType.APPLICATION_JSON.toString()))
+            val response = """
+                    { "response": { "items": [
+                        ${dates.joinToString(separator = ",") { "{ \"date\": $it }" }}
+                    ]}}
+                """.trimIndent()
+            respond(response, headers = responseHeaders)
+        }
+    }
+}
