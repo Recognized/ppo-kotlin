@@ -4,17 +4,34 @@ import io.ktor.client.HttpClient
 import io.ktor.client.request.get
 import io.ktor.client.request.parameter
 import kotlinx.serialization.json.*
-import java.io.File
 import java.net.URI
 import java.net.URISyntaxException
+import java.nio.file.Files
+import java.nio.file.Path
+
+private val log = Logger(OEmbed.toString())
 
 object OEmbed : HtmlMetaParser {
     private val endpointProviders = listOf(
         YoutubeOEmbedProvider
     )
 
+    override suspend fun cacheResponse(client: HttpClient, limit: Int, url: String, file: Path) {
+        val provider = getProvider(url) ?: return
+        val response = client.get<String>(provider.endpoint) {
+            parameter("url", url)
+        }
+        Files.newBufferedWriter(file).use {
+            it.write(response)
+        }
+    }
+
     override suspend fun getMetadata(client: HttpClient, limit: Int, url: String): HtmlMetadata? {
-        val provider = getProvider(url) ?: return null
+        val provider = getProvider(url) ?: run {
+            log.info { "Provider not found for $url" }
+            return null
+        }
+        log.info { "Found provider $provider" }
         return try {
             val response = client.get<String>(provider.endpoint) {
                 parameter("url", url)
@@ -26,9 +43,9 @@ object OEmbed : HtmlMetaParser {
         }
     }
 
-    override suspend fun getMetadata(file: File, url: String): HtmlMetadata? {
+    override fun getMetadata(file: Path, url: String): HtmlMetadata? {
         val provider = getProvider(url) ?: return null
-        val response = file.bufferedReader().readText()
+        val response = Files.newBufferedReader(file).readText()
         return processResponse(provider, response)
     }
 
@@ -37,21 +54,25 @@ object OEmbed : HtmlMetaParser {
             val json = Json(JsonConfiguration.Stable).parse(JsonObjectSerializer, response)
             provider.parseResponse(json)
         } catch (ex: Throwable) {
-            println(ex.message)
+            log.info { "Fail: ${ex.message}" }
             null
         }
     }
 
-    fun getProvider(baseUrl: String): OEmbedProviderProvider? {
+    private fun getProvider(baseUrl: String): OEmbedProviderProvider? {
         val host = try {
             URI(baseUrl).host.removePrefix("www.")
         } catch (ex: URISyntaxException) {
+            log.info { "Fail: ${ex.message}" }
             return null
         }
+        log.info { "Using host: $host" }
         return endpointProviders.firstOrNull {
             it.accept(host, baseUrl)
         }
     }
+
+    override fun toString(): String = "oEmbed"
 }
 
 interface OEmbedProviderProvider {
@@ -64,9 +85,9 @@ interface OEmbedProviderProvider {
 
 object YoutubeOEmbedProvider : OEmbedProviderProvider {
     private val urlRegexes = listOf(
-        "https://*.youtube.com/watch*".toRegex(),
-        "https://*.youtube.com/v/*".toRegex(),
-        "https://youtu.be/*".toRegex()
+        "https://.*\\.youtube\\.com/watch.*".toRegex(),
+        "https://.*\\.youtube\\.com/v/.*".toRegex(),
+        "https://youtu\\.be/.*".toRegex()
     )
 
     override val endpoint: String get() = "https://www.youtube.com/oembed"
@@ -90,9 +111,12 @@ object YoutubeOEmbedProvider : OEmbedProviderProvider {
                 html = obj.getString("html")
             )
         } catch (ex: Throwable) {
+            log.info { "Fail: ${ex.message}" }
             null
         }
     }
+
+    override fun toString(): String = "Youtube"
 }
 
 private fun JsonObject.getString(key: String) = getPrimitive(key).content

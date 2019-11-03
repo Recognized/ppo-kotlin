@@ -1,6 +1,7 @@
 package crawler
 
 import io.ktor.client.HttpClient
+import io.ktor.client.call.receive
 import io.ktor.client.request.get
 import io.ktor.client.request.header
 import io.ktor.client.response.HttpResponse
@@ -9,13 +10,26 @@ import io.ktor.http.contentType
 import org.jsoup.Jsoup
 import org.jsoup.parser.Parser
 import java.io.File
+import java.io.InputStream
 import java.nio.ByteBuffer
 import java.nio.CharBuffer
 import java.nio.charset.CodingErrorAction
+import java.nio.file.Files
+import java.nio.file.Path
 
 private const val BUFFER_SIZE = 8192
 
 object JsoupMetaParser : HtmlMetaParser {
+
+    override suspend fun cacheResponse(client: HttpClient, limit: Int, url: String, file: Path) {
+        Files.newOutputStream(file).use { out ->
+            client.get<HttpResponse>(url) {
+                header("Range", "bytes:0-${limit}")
+            }.use {
+                it.receive<InputStream>().copyTo(out, limit)
+            }
+        }
+    }
 
     override suspend fun getMetadata(client: HttpClient, limit: Int, url: String): HtmlMetadata? {
         return UnfurlCrawler.createUnfurlFromMeta(
@@ -23,9 +37,9 @@ object JsoupMetaParser : HtmlMetaParser {
         ).firstOrNull()
     }
 
-    override suspend fun getMetadata(file: File, url: String): HtmlMetadata? {
+    override fun getMetadata(file: Path, url: String): HtmlMetadata? {
         return UnfurlCrawler.createUnfurlFromMeta(
-            file.bufferedReader().use {
+            Files.newBufferedReader(file).use {
                 parseMeta(it.readText(), url)
             }
         ).firstOrNull()

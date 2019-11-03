@@ -5,19 +5,21 @@ import io.ktor.client.call.receive
 import io.ktor.client.request.get
 import io.ktor.client.request.header
 import io.ktor.client.response.HttpResponse
-import kotlinx.coroutines.io.ByteReadChannel
-import kotlinx.coroutines.io.copyTo
+import kotlinx.coroutines.runBlocking
 import org.apache.commons.text.StringEscapeUtils
 import java.io.Closeable
 import java.io.File
+import java.io.InputStream
+import java.nio.file.Files
+import java.nio.file.Path
 
 private val emptyMeta: MetaAttributes = listOf()
 
 interface HtmlMetaParser {
 
-    suspend fun cacheResponse(client: HttpClient, limit: Int, url: String, file: File)
+    suspend fun cacheResponse(client: HttpClient, limit: Int, url: String, file: Path)
     suspend fun getMetadata(client: HttpClient, limit: Int, url: String): HtmlMetadata?
-    suspend fun getMetadata(file: File, url: String): HtmlMetadata?
+    fun getMetadata(file: Path, url: String): HtmlMetadata?
 
     companion object {
         val Parsers = listOf(OEmbed, JsoupMetaParser, HandHtmlMetaParser)
@@ -25,12 +27,12 @@ interface HtmlMetaParser {
 }
 
 object HandHtmlMetaParser : HtmlMetaParser {
-    override suspend fun cacheResponse(client: HttpClient, limit: Int, url: String, file: File) {
-        file.outputStream().use { out ->
+    override suspend fun cacheResponse(client: HttpClient, limit: Int, url: String, file: Path) {
+        Files.newOutputStream(file).use { out ->
             client.get<HttpResponse>(url) {
                 header("Range", "bytes:0-${limit}")
             }.use {
-                it.receive<ByteReadChannel>().copyTo(out, limit)
+                it.receive<InputStream>().copyTo(out, limit)
             }
         }
     }
@@ -45,10 +47,12 @@ object HandHtmlMetaParser : HtmlMetaParser {
         }
     }
 
-    override suspend fun getMetadata(file: File, url: String): HtmlMetadata? {
-        return FileTextReadChannel(file.path).use {
+    override fun getMetadata(file: Path, url: String): HtmlMetadata? {
+        return FileTextReadChannel(file.toString()).use {
             UnfurlCrawler.createUnfurlFromMeta(
-                HandHtmlMetaParserImpl(it).consumeDocument()
+                runBlocking {
+                    HandHtmlMetaParserImpl(it).consumeDocument()
+                }
             ).firstOrNull()
         }
     }

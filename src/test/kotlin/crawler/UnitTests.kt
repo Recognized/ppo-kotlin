@@ -1,20 +1,16 @@
 package crawler
 
 import io.ktor.client.HttpClient
-import io.ktor.client.call.receive
-import io.ktor.client.request.get
-import io.ktor.client.request.header
-import io.ktor.client.response.HttpResponse
-import kotlinx.coroutines.io.ByteReadChannel
-import kotlinx.coroutines.io.jvm.javaio.copyTo
 import kotlinx.coroutines.runBlocking
-import org.junit.jupiter.api.Assertions
 import org.junit.jupiter.api.Test
-import java.io.File
+import org.junit.jupiter.api.fail
+import java.nio.file.Files
+import java.nio.file.Paths
 
-private const val READ_LIMIT = 30000L
+private const val READ_LIMIT = 30000
 
 class UnitTests {
+    private val log = Logger("TEST")
 
     @Test
     fun `test google`() = externalUnfurlTest("https://www.google.com") {
@@ -56,56 +52,47 @@ class UnitTests {
 
     @Test
     fun `test youtube video`() = externalUnfurlTest("https://www.youtube.com/watch?v=Iydpa_gPdes") {
-        null
+        YoutubeOEmbed(
+            thumbnailUrl = "https://i.ytimg.com/vi/Iydpa_gPdes/hqdefault.jpg",
+            thumbnailWidth = 480,
+            thumbnailHeight = 360,
+            authorName = "TechLead",
+            authorUrl = "https://www.youtube.com/channel/UC4xKdmAXFh4ACyhpiQ_3qBw",
+            title = "What is a 10x Engineer (feat. ex-Google Tech Lead) #10xengineer",
+            html = "<iframe width=\"480\" height=\"270\" src=\"https://www.youtube.com/embed/Iydpa_gPdes?feature=oembed\" frameborder=\"0\" allow=\"accelerometer; autoplay; encrypted-media; gyroscope; picture-in-picture\" allowfullscreen></iframe>",
+            type = "video",
+            version = "1.0"
+        )
     }
 
     private fun externalUnfurlTest(
         url: String,
         expectedMeta: () -> HtmlMetadata?
     ) {
-        val cached = File("src/test/resources/${url.substringAfter("//").replace('/', '_')}")
-        val unfurl = if (cached.exists()) {
-            runBlocking {
-                val result: Pair<HtmlMetaParser, HtmlMetadata>? = run {
-                    for (parser in HtmlMetaParser.Parsers) {
-                        val data = parser.getMetadata(cached, url)
-                        if (data != null) {
-                            return@run parser to data
-                        }
-                    }
-                    null
+        val client = HttpClient()
+        val unfurls = HtmlMetaParser.Parsers.map { parser ->
+            val parserDir = Paths.get("src", "test", "resources", parser.toString())
+            Files.createDirectories(parserDir)
+            val cached = parserDir.resolve(url.substringAfter("//").replace('/', '_'))
+            val unfurl = runBlocking {
+                if (Files.exists(cached)) {
+                    log.info { "Cache exists, reading $cached" }
+                    parser.getMetadata(cached, url)
+                } else {
+                    log.info { "Caching response" }
+                    parser.cacheResponse(client, READ_LIMIT, url, cached)
+                    log.info { "Get metadata" }
+                    parser.getMetadata(client, READ_LIMIT, url)
                 }
-                println("Using: ${result?.first}")
-                result?.second
             }
-        } else {
-            runBlocking {
-                val client = HttpClient()
-                cached.outputStream().use { out ->
-                    client.get<HttpResponse>(url) {
-                        header("Range", "bytes:0-${READ_LIMIT}")
-                    }.use {
-                        it.receive<ByteReadChannel>().copyTo(out, limit = READ_LIMIT)
-                    }
-                }
-                val result: Pair<HtmlMetaParser, HtmlMetadata>? = run {
-                    for (parser in HtmlMetaParser.Parsers) {
-                        val data = parser.getMetadata(client, READ_LIMIT.toInt(), url)
-                        if (data != null) {
-                            return@run parser to data
-                        }
-                    }
-                    null
-                }
-                println("Using: ${result?.first}")
-                result?.second
-            }
-        }
+            parser to unfurl
+        }.toMap()
         val meta = expectedMeta()
-        if (meta != unfurl) {
-
+        if (unfurls.values.none { it == meta }) {
+            fail {
+                "Expected: $meta, but got: $unfurls"
+            }
         }
-        Assertions.assertEquals(meta, unfurl)
     }
 }
 
