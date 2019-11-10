@@ -5,6 +5,8 @@ import io.ktor.client.call.receive
 import io.ktor.client.request.get
 import io.ktor.client.request.header
 import io.ktor.client.response.HttpResponse
+import kotlinx.coroutines.io.ByteReadChannel
+import kotlinx.coroutines.io.jvm.javaio.copyTo
 import kotlinx.coroutines.runBlocking
 import org.apache.commons.text.StringEscapeUtils
 import java.io.Closeable
@@ -22,7 +24,7 @@ interface HtmlMetaParser {
     fun getMetadata(file: Path, url: String): HtmlMetadata?
 
     companion object {
-        val Parsers = listOf(OEmbed, JsoupMetaParser, HandHtmlMetaParser)
+        val Parsers = listOf(OEmbed, JsoupMetaParser)
     }
 }
 
@@ -32,7 +34,7 @@ object HandHtmlMetaParser : HtmlMetaParser {
             client.get<HttpResponse>(url) {
                 header("Range", "bytes:0-${limit}")
             }.use {
-                it.receive<InputStream>().copyTo(out, limit)
+                it.receive<ByteReadChannel>().copyTo(out, limit.toLong())
             }
         }
     }

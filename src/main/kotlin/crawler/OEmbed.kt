@@ -49,7 +49,7 @@ object OEmbed : HtmlMetaParser {
         return processResponse(provider, response)
     }
 
-    private fun processResponse(provider: OEmbedProviderProvider, response: String): HtmlMetadata? {
+    private fun processResponse(provider: OEmbedProvider, response: String): HtmlMetadata? {
         return try {
             val json = Json(JsonConfiguration.Stable).parse(JsonObjectSerializer, response)
             provider.parseResponse(json)
@@ -59,7 +59,7 @@ object OEmbed : HtmlMetaParser {
         }
     }
 
-    private fun getProvider(baseUrl: String): OEmbedProviderProvider? {
+    private fun getProvider(baseUrl: String): OEmbedProvider? {
         val host = try {
             URI(baseUrl).host.removePrefix("www.")
         } catch (ex: URISyntaxException) {
@@ -75,7 +75,7 @@ object OEmbed : HtmlMetaParser {
     override fun toString(): String = "oEmbed"
 }
 
-interface OEmbedProviderProvider {
+interface OEmbedProvider {
     val endpoint: String
 
     fun accept(host: String, url: String): Boolean
@@ -83,7 +83,7 @@ interface OEmbedProviderProvider {
     fun parseResponse(json: JsonElement): HtmlMetadata?
 }
 
-object YoutubeOEmbedProvider : OEmbedProviderProvider {
+object YoutubeOEmbedProvider : OEmbedProvider {
     private val urlRegexes = listOf(
         "https://.*\\.youtube\\.com/watch.*".toRegex(),
         "https://.*\\.youtube\\.com/v/.*".toRegex(),

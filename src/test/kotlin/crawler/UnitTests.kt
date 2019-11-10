@@ -1,16 +1,25 @@
 package crawler
 
 import io.ktor.client.HttpClient
+import io.ktor.client.request.get
 import kotlinx.coroutines.runBlocking
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.fail
 import java.nio.file.Files
 import java.nio.file.Paths
 
-private const val READ_LIMIT = 30000
+private const val READ_LIMIT = 4000
 
 class UnitTests {
     private val log = Logger("TEST")
+
+    @Test
+    fun `test read response`() {
+        runBlocking {
+            val response = HttpClient().readResponse(200, "https://google.com")
+            assert(response.isNotEmpty() && response.length <= 200)
+        }
+    }
 
     @Test
     fun `test google`() = externalUnfurlTest("https://www.google.com") {
@@ -63,6 +72,12 @@ class UnitTests {
             type = "video",
             version = "1.0"
         )
+    }
+
+    @Test
+    fun `test youtube`() = externalUnfurlTest("https://www.youtube.com") {
+        // YouTube root page itself does not have any kind of preview support
+        null
     }
 
     private fun externalUnfurlTest(

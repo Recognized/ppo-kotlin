@@ -7,10 +7,10 @@ import io.ktor.client.request.header
 import io.ktor.client.response.HttpResponse
 import io.ktor.http.charset
 import io.ktor.http.contentType
+import kotlinx.coroutines.io.ByteReadChannel
+import kotlinx.coroutines.io.jvm.javaio.copyTo
 import org.jsoup.Jsoup
 import org.jsoup.parser.Parser
-import java.io.File
-import java.io.InputStream
 import java.nio.ByteBuffer
 import java.nio.CharBuffer
 import java.nio.charset.CodingErrorAction
@@ -26,7 +26,7 @@ object JsoupMetaParser : HtmlMetaParser {
             client.get<HttpResponse>(url) {
                 header("Range", "bytes:0-${limit}")
             }.use {
-                it.receive<InputStream>().copyTo(out, limit)
+                it.receive<ByteReadChannel>().copyTo(out, limit.toLong())
             }
         }
     }
@@ -79,15 +79,25 @@ suspend fun HttpClient.readResponse(limit: Int, url: String): String {
     val content = call.content
     val buffer = ByteBuffer.allocate(BUFFER_SIZE)
     val out = CharBuffer.allocate(limit)
-    while (!call.content.isClosedForRead || out.position() != out.limit()) {
-        buffer.clear()
+    while (!call.content.isClosedForRead) {
         val count = content.readAvailable(buffer)
         if (count == 0) {
             break
         }
         buffer.flip()
         val error = decoder.decode(buffer, out, false)
-        assert(!error.isOverflow)
+        if (buffer.hasRemaining()) {
+            val rest = ByteArray(buffer.remaining())
+            buffer.get(rest)
+            buffer.clear()
+            buffer.put(rest)
+        } else {
+            buffer.clear()
+        }
+        if (error.isOverflow) {
+            break
+        }
     }
+    out.flip()
     return out.toString()
 }
