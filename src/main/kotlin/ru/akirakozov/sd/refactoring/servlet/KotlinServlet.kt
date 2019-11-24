@@ -7,7 +7,9 @@ import javax.servlet.http.HttpServletRequest
 import javax.servlet.http.HttpServletResponse
 import javax.servlet.http.HttpServletResponse.SC_OK
 
-abstract class KotlinServlet(override val db: Database) : HttpServlet(), DbContext {
+abstract class KotlinServlet(private val database: Database) : HttpServlet(), DbContext {
+    override fun db(): Database = database
+
     abstract fun GetContext.respondHtml(): String
 
     override fun doGet(req: HttpServletRequest, resp: HttpServletResponse) {

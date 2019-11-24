@@ -6,9 +6,9 @@ import org.jetbrains.exposed.sql.transactions.transaction
 import java.sql.Connection
 
 interface DbContext {
-    val db: Database
+    fun db(): Database
 }
 
 fun <T> DbContext.tx(statement: Transaction.() -> T): T {
-    return transaction(Connection.TRANSACTION_SERIALIZABLE, 3, db, statement)
+    return transaction(Connection.TRANSACTION_SERIALIZABLE, 3, db(), statement)
 }
