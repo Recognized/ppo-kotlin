@@ -74,6 +74,7 @@ dependencies {
     compile group: 'org.jsoup', name: 'jsoup', version: '1.11.3'
     compile("org.springframework.boot:spring-boot-starter-web")
     compile group: 'org.springframework', name: 'spring-jdbc'
+    implementation("com.github.ajalt:clikt:2.3.0")
 }
 
 test {
