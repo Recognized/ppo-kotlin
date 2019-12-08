@@ -15,9 +15,6 @@ import task4.mvc.model.Todo
 import task4.mvc.model.TodoList
 import javax.sql.DataSource
 
-/**
- * @author akirakozov
- */
 class TodoJdbcDao(val dataSource: DataSource) : TodoDao, DbContext {
     val db = Database.connect(dataSource)
 

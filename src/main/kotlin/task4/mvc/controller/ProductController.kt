@@ -11,9 +11,6 @@ import task4.mvc.view.todoList
 import task4.mvc.view.todoLists
 import javax.websocket.server.PathParam
 
-/**
- * @author akirakozov
- */
 @Controller
 class ProductController(private val productDao: TodoDao) {
 

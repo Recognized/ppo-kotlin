@@ -8,9 +8,6 @@ import task4.mvc.dao.TodoJdbcDao
 
 import javax.sql.DataSource
 
-/**
- * @author akirakozov
- */
 @Configuration
 open class JdbcDaoContextConfiguration {
     @Bean

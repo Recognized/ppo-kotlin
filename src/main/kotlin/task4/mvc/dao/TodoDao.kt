@@ -5,9 +5,6 @@ import task4.mvc.model.TodoList
 
 typealias TID = Int
 
-/**
- * @author akirakozov
- */
 interface TodoDao {
 
     fun getTodoLists(): List<TodoList>
