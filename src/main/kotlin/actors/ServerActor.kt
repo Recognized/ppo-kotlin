@@ -60,9 +60,9 @@ abstract class SearchConcrete : UntypedAbstractActor() {
     }
 }
 
-private fun fakeSearch(): List<String> {
+private fun SearchConcrete.fakeSearch(): List<String> {
     return (1..10).map {
-        "$it"
+        "${this::class.java.simpleName}-$it"
     }
 }
 
@@ -77,21 +77,6 @@ open class YandexSearch : SearchConcrete() {
 open class BingSearch : SearchConcrete() {
     override suspend fun doSearch(query: String): List<String> = fakeSearch()
 }
-
-class SlowYandexSearch : YandexSearch() {
-    override suspend fun doSearch(query: String): List<String> {
-        delay(5000)
-        return super.doSearch(query)
-    }
-}
-
-class SlowBingSearch : BingSearch() {
-    override suspend fun doSearch(query: String): List<String> {
-        delay(5000)
-        return super.doSearch(query)
-    }
-}
-
 
 class CoroutineActor<T>(
     context: CoroutineContext = Dispatchers.IO,
@@ -140,9 +125,7 @@ fun main() {
                 setOf(
                     GoogleSearch::class.java,
                     YandexSearch::class.java,
-                    BingSearch::class.java,
-                    SlowYandexSearch::class.java,
-                    SlowBingSearch::class.java
+                    BingSearch::class.java
                 )
             )
         ).apply {

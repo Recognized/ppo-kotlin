@@ -76,6 +76,7 @@ dependencies {
     compile group: 'org.springframework', name: 'spring-jdbc'
     // https://mvnrepository.com/artifact/com.typesafe.akka/akka-actor
     compile group: 'com.typesafe.akka', name: 'akka-actor_2.13', version: '2.6.3'
+    testImplementation group: 'com.typesafe.akka', name: 'akka-testkit_2.13', version: '2.6.3'
 
     implementation("com.github.ajalt:clikt:2.3.0")
 }
